@@ -14,7 +14,7 @@ const {
 
 module.exports = function(app) {
     app.get("/", function(req, res) {
-        res.render("resouces/views/pages/welcome.ejs", { appId: process.env.PORT });
+        res.render(path.join(ROOTPATH, "views/views/pages/welcome.ejs"), { appId: process.env.PORT });
     });
 
     app.get("/verify-email/:token", async function(req, res) {
@@ -24,7 +24,7 @@ module.exports = function(app) {
             var errorBags = [{
                 message: "Token does not exist.",
             }, ];
-            res.render("resouces/error/bags.ejs", { errorBags });
+            res.render(path.join(ROOTPATH, "views/views/error/bags.ejs"), { errorBags });
             return;
         } else {
             // Token exists
@@ -33,7 +33,7 @@ module.exports = function(app) {
                 var errorBags = [{
                     message: "User not found",
                 }, ];
-                res.render("resouces/error/bags.ejs", { errorBags });
+                res.render(path.join(ROOTPATH, "views/views/error/bags.ejs"), { errorBags });
                 return;
             }
             if (moment(alreadyExist.expiresIn).isSameOrAfter(moment()) == true) {
@@ -46,7 +46,7 @@ module.exports = function(app) {
                                     res.redirect(`/500?err=${err}`);
                                     return;
                                 }
-                                res.render("resouces/views/pages/verify-email.ejs", {
+                                res.render(path.join(ROOTPATH, "views/views/pages/verify-email.ejs"), {
                                     email: user.email,
                                 });
                                 return;
@@ -62,7 +62,7 @@ module.exports = function(app) {
                 await Token.findOneAndRemove({ token: alreadyExist.token }).then(
                     async() => {
                         await createToken(user, new_token).then((data) => {
-                            res.render("resouces/views/pages/verify-email-resend.ejs", {
+                            res.render(path.join(ROOTPATH, "views/views/pages/verify-email-resend.ejs"), {
                                 email: email,
                             });
                             return;
@@ -74,7 +74,7 @@ module.exports = function(app) {
     });
 
     app.get("/reset-password/:token", function(req, res) {
-        res.render("resouces/views/pages/reset-password.ejs", {
+        res.render(path.join(ROOTPATH, "views/views/pages/reset-password.ejs"), {
             query: req.query,
             errorBags: [],
             token: req.params.token,
@@ -136,28 +136,28 @@ module.exports = function(app) {
     });
 
     app.get("/login", function(req, res) {
-        res.render("resouces/views/pages/login.ejs");
+        res.render("views/views/pages/login.ejs");
     });
 
     app.get("/resources-images/:filename", function(req, res) {
         let filename = req.params.filename.replace(/\//g, '.')
         res.sendFile(
-            path.join(__dirname, "views/resources/images", filename)
+            path.join(ROOTPATH, "views/images", filename)
         );
     });
 
     app.get("/404", function(req, res) {
-        res.render("resouces/error/404.ejs");
+        res.render(path.join(ROOTPATH, "views/views/error/404.ejs"));
     });
 
     app.get("/500", function(req, res) {
         if (req.query.err == null || req.query.err == "") {
             req.query.err = "Misuse of resource";
         }
-        res.render("resouces/error/500.ejs", { error: req.query.err });
+        res.render(path.join(ROOTPATH, "views/views/error/500.ejs"), { error: req.query.err });
     });
 
     app.get("/*", function(req, res) {
-        res.render("resouces/error/404.ejs");
+        res.render(path.join(ROOTPATH, "views/views/error/404.ejs"));
     });
 };
