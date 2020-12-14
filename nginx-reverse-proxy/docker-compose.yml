@@ -1,0 +1,21 @@
+version: '3'
+services:  
+  web:
+    build: './web'
+    ports:
+      - "3000:3000"
+    networks:
+      - node-microservice-boiler_default
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./web/public:/srv/www/static
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - node-microservice-boiler_default
+networks:
+  node-microservice-boiler_default:
+    external: true
