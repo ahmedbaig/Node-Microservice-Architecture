@@ -1,9 +1,9 @@
+'use strict';
 const fs = require("fs");
 const express = require("express");
 const path = require("path");
 const cookieParser = require("cookie-parser");
-const logger = require("morgan");
-const api_routes = require("./routes/api");
+const logger = require("morgan"); 
 const cors = require("cors");
 global.ROOTPATH = __dirname;
 var app = express();
@@ -26,14 +26,17 @@ app.use(cookieParser());
 
 // Static rendering
 app.use(express.static(path.join(__dirname, "public")));
-// app.use(express.static(path.join(__dirname, "views")));
+app.use(express.static(path.join(__dirname, "views")));
 app.set("view engine", "ejs");
 
 // Route definitions
 app.use('/cache', require('./app/cache'))
-app.use("/api", api_routes);
+app.use("/console", require('./routes/console'));
+
+app.use("/api", require("./routes/api"));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-require("./routes/web")(app);
+
 require('./sockets')(app);
+require("./routes/web")(app);
 
 module.exports = app;

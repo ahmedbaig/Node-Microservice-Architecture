@@ -3,6 +3,7 @@
 /**
  * Module dependencies.
  */
+require('dotenv').config()
 var Spinner = require("cli-spinner").Spinner;
 var app = require("../app");
 var fs = require("fs");
@@ -45,7 +46,6 @@ mongoose
                     console.info(`✔️ Server Started (listening on PORT : ${port})`);
                     console.info(`⌚`, moment().format("DD-MM-YYYY hh:mm:ss a"));
                 });
-                server.on("error", onError);
             })
             .catch((err) => {
                 console.error(`❌ Server Stopped (listening on PORT : ${port})`);
