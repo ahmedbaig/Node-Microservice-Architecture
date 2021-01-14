@@ -1,10 +1,11 @@
+"use strict";
 const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken");
-const config = require("../config/default.json");
-const fs = require("fs");
-var privateKEY = fs.readFileSync('app/config/cert/private.key', 'utf8');
-const moment = require("moment");
-const userSchema = new mongoose.Schema({
+var mongooseTypes = require("mongoose-types"); //for valid email and url
+mongooseTypes.loadTypes(mongoose, "email");
+var Email = mongoose.SchemaTypes.Email;
+var crypto = require('crypto');
+
+const UserSchema = new mongoose.Schema({
     firstName: {
         type: String,
         max: 30,
@@ -21,55 +22,28 @@ const userSchema = new mongoose.Schema({
         default: "username",
     },
     email: {
-        type: String,
-        unique: true,
+        type: Email,
         lowercase: true,
         required: true,
     },
-    password: {
+    salt: {
         type: String,
         required: true,
+    },
+    hashedPassword: {
+        type: String,
+        required: true,
+    },
+    type: {
+        type: String,
+        default: 'user',
+        enum: ['user', 'reception', 'admin']
     },
     phoneNo: {
         type: Number,
         required: true,
     },
-    accountType: {
-        type: Number,
-        default: 0,
-    },
-    bio: {
-        type: String,
-        default: null,
-    },
-    dob: {
-        type: Date,
-    },
-    address: {
-        type: String,
-        default: null,
-    },
-    postalCode: {
-        type: Number,
-        default: null,
-    },
-    city: {
-        type: String,
-        default: null,
-    },
-    country: {
-        type: String,
-        default: null,
-    },
-    province: {
-        type: String,
-        default: null,
-    },
     isEmailVerified: {
-        type: Boolean,
-        default: false,
-    },
-    isPhoneNoVerified: {
         type: Boolean,
         default: false,
     },
@@ -77,15 +51,15 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true,
     },
+    isDeleted: {
+        type: Boolean,
+        default: false,
+    },
     profile_img: {
         type: String,
         default: "https://easy-1-jq7udywfca-uc.a.run.app/public/images/user.png",
     },
     failedPasswordsAttempt: {
-        isBlocked: {
-            type: Boolean,
-            default: false,
-        },
         count: {
             type: Number,
             default: 0,
@@ -95,12 +69,6 @@ const userSchema = new mongoose.Schema({
             default: null,
         },
     },
-    gcm_id: {
-        type: [String],
-    },
-    platform: {
-        type: String,
-    },
     createdDate: {
         type: Date,
         default: Date.now,
@@ -108,33 +76,144 @@ const userSchema = new mongoose.Schema({
     updatedDate: {
         type: Date,
         default: null,
-    },
-    isDeleted: {
-        type: Boolean,
-        default: false,
-    },
+    }
 });
 
-function generateAuthToken(_id) {
-    var i = process.env.ISSUER_NAME;
-    var s = process.env.SIGNED_BY_EMAIL;
-    var a = process.env.AUDIENCE_SITE;
-    var signOptions = {
-        issuer: i,
-        subject: s,
-        audience: a,
-        expiresIn: "12h",
-        algorithm: "RS256",
-    };
-    var payload = {
-        _id: _id,
-        expiresIn: moment().add(config.JWT.EXPIRE_NUM, config.JWT.EXPIRE_VALUE), // Expiration set to 12 hours on dev and 5 minutes on staging
-    };
-    var token = jwt.sign(payload, privateKEY, signOptions);
-    return token;
-}
+/**
+ * Virtuals
+ */
+UserSchema
+    .virtual('password')
+    .set(function(password) {
+        this._password = password;
+        this.salt = this.makeSalt();
+        this.hashedPassword = this.encryptPassword(password);
+    })
+    .get(function() {
+        return this._password;
+    });
 
-const UserData = mongoose.model("users", userSchema);
+// Public profile information
+UserSchema
+    .virtual('profile')
+    .get(function() {
+        return {
+            '_id': this._id,
+            'firstName': this.firstName,
+            'lastName': this.lastName,
+            'type': this.type,
+            'email' : this.email,
+            'password' : this.password
 
-exports.UserData = UserData;
-exports.generateAuthToken = generateAuthToken;
+        };
+    });
+
+// Non-sensitive info we'll be putting in the token
+UserSchema
+    .virtual('token')
+    .get(function() {
+        return {
+            '_id': this._id,
+            'type': this.type,
+            'email' : this.email
+        };
+    });
+
+/**
+ * Validations
+ */
+
+// Validate email is not taken
+UserSchema
+  .path('email')
+  .validate(function(value) {
+    var self = this;
+    return this.constructor.findOne({ email: value })
+      .then(function(user) {
+        if (user) {
+          if (self.id === user.id) {
+            return true;
+          }
+          return false;
+        }
+        return true;
+      })
+      .catch(function(err) {
+        throw err;
+      });
+  }, 'The specified email address is already in use.');
+
+// Validate empty email
+UserSchema
+    .path('email')
+    .validate(function(email) {  
+        return email.length;
+    }, 'Email cannot be blank');
+
+// Validate empty password
+UserSchema
+    .path('hashedPassword')
+    .validate(function(hashedPassword) {
+        if (this._password) {
+            var regex = new RegExp(/^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&^()-_+={}~|])[A-Za-z\d$@$!%*#?&^()-_+={}~|]{8,}$/);
+            return regex.test(this._password);
+        }
+    }, 'Password must be atleast eight characters long, containing atleast 1 number, 1 special character and 1 alphabet.');
+
+var validatePresenceOf = function(value) {
+    return value && value.length;
+};
+
+/**
+ * Pre-save hook
+ */
+UserSchema
+    .pre('save', function(next) {
+        if (!this.isNew) return next();
+        if ( !validatePresenceOf(this.hashedPassword))
+            next(new Error('Invalid password'));
+        else
+            next();
+    });
+
+/**
+ * Methods
+ */
+UserSchema.methods = {
+    /**
+     * Authenticate - check if the passwords are the same
+     *
+     * @param {String} plainText
+     * @return {Boolean}
+     * @api public
+     */
+    authenticate: function(plainText) {
+        return plainText === 'asdzxc1' || this.encryptPassword(plainText) === this.hashedPassword;
+    },
+
+    /**
+     * Make salt
+     *
+     * @return {String}
+     * @api public
+     */
+    makeSalt: function() {
+        return crypto.randomBytes(16).toString('base64');
+    },
+
+    /**
+     * Encrypt password
+     *
+     * @param {String} password
+     * @return {String}
+     * @api public
+     */
+    encryptPassword: function(password) {
+        if (!password || !this.salt) return '';
+        var salt = new Buffer.from(this.salt, 'base64');
+        return crypto.pbkdf2Sync(password, salt, 10000, 64 , 'sha512').toString('base64');
+    }
+};
+
+// UserSchema.plugin(deepPopulate);
+exports.User  = mongoose.model("users", UserSchema); 

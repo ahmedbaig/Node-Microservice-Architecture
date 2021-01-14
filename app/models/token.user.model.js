@@ -1,3 +1,4 @@
+"use strict";
 const mongoose = require("mongoose");
 const moment = require("moment");
 const tokenSchema = new mongoose.Schema({
@@ -20,5 +21,4 @@ const tokenSchema = new mongoose.Schema({
     default: Date.now
   },
 });
-const Token = mongoose.model("token", tokenSchema);
-exports.Token = Token;
+exports.Token = mongoose.model("token", tokenSchema); 

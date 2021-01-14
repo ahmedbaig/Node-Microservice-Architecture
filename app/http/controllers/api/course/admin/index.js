@@ -2,7 +2,7 @@
 
 var express = require('express');
 var auth = require('../../../../middleware/auth'); 
-var controller = require('./user.admin.controller')
+var controller = require('./course.admin.controller')
 var router = express.Router();
 
 router.get('/get', auth.isAuthenticated(), controller.get)

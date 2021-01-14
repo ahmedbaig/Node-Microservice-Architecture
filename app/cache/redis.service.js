@@ -5,17 +5,17 @@ const moment = require("moment");
 var redisClient = require("redis").createClient;
 let client;
 
-exports.connect_cache = function() {
+exports.connect_cache = function () {
     return new Promise((resolve, reject) => {
         client = redisClient({
             port: process.env.REDIS_PORT, // replace with your port
             host: process.env.REDIS_HOST, // replace with your hostanme or IP address
             password: process.env.REDIS_PASS, // replace with your password
         });
-        client.on("error", function(err) {
+        client.on("error", function (err) {
             reject(err);
         });
-        client.on("connect", function() {
+        client.on("connect", function () {
             resolve();
         });
     });
@@ -24,20 +24,20 @@ exports.connect_cache = function() {
 function cache() {
     return (
         compose()
-        // Attach user to request
-        .use(function(req, res, next) {
-            client.get(req.url, (err, data) => {
-                if (err) throw err;
-                if (data !== null) {
-                    client.get(`count|${req.url}`, (err, data) => {
-                        client.set(`count|${req.url}`, parseInt(data) + 1);
-                    });
-                    res.json(JSON.parse(data));
-                } else {
-                    next();
-                }
-            });
-        })
+            // Attach user to request
+            .use(function (req, res, next) {
+                client.get(req.url, (err, data) => {
+                    if (err) throw err;
+                    if (data !== null) {
+                        client.get(`count|${req.url}`, (err, data) => {
+                            client.set(`count|${req.url}`, parseInt(data) + 1);
+                        });
+                        res.json(JSON.parse(data));
+                    } else {
+                        next();
+                    }
+                });
+            })
     );
 }
 
@@ -54,11 +54,11 @@ function setCache(req, res, data) {
 exports.cache = cache;
 exports.setCache = setCache;
 
-exports.setUserStateToken = function(req, res, exp) {
+exports.setUserStateToken = function (auth, exp) {
     return new Promise((resolve, reject) => {
         try {
             console.log("Setting data (Auth Token). Expires In: ", exp, "Seconds");
-            client.setex(`${req.auth}/state/token/expired`, exp, JSON.stringify(req.auth));
+            client.setex(`${auth}/state/token/expiry`, exp, JSON.stringify(auth));
             resolve(true);
         } catch (error) {
             reject({ success: false, message: error.message });
@@ -66,15 +66,15 @@ exports.setUserStateToken = function(req, res, exp) {
     });
 };
 
-exports.getUserStateToken = function(req, res) {
+exports.deleteUserStateToken = function (auth) {
     return new Promise((resolve, reject) => {
         try {
-            client.get(`${req.auth}/state/token/expired`, (err, data) => {
-                if (err) throw err;
-                if (data !== null) {
-                    resolve(data);
+            console.log("Deleting data (Auth Token).");
+            client.del(`${auth}/state/token/expiry`, function (err, response) {
+                if (response == 1) {
+                    resolve(true);
                 } else {
-                    resolve(null);
+                    reject({ success: false, message: err.message });
                 }
             });
         } catch (error) {
@@ -83,11 +83,29 @@ exports.getUserStateToken = function(req, res) {
     });
 };
 
-exports.getRedisKeys = async function(req, res) {
+exports.getUserStateToken = function (auth) {
+    return new Promise((resolve, reject) => {
+      try {
+        client.get(`${auth}/state/token/expiry`, (err, data) => {
+          if (err) throw err;
+          if (data !== null) {
+            resolve(data);
+          } else {
+            resolve(null);
+          }
+        });
+      } catch (error) {
+        reject({ success: false, message: error.message });
+      }
+    });
+  };
+  
+
+exports.getRedisKeys = async function (req, res) {
     return new Promise((resolve, reject) => {
         try {
-            client.keys("*", function(err, keys) {
-                let count = _.filter(keys, function(o) {
+            client.keys("*", function (err, keys) {
+                let count = _.filter(keys, function (o) {
                     return o.split("|")[0] == "count";
                 });
                 if (err) reject({ success: false, message: err });
@@ -99,7 +117,7 @@ exports.getRedisKeys = async function(req, res) {
     });
 };
 
-exports.getRedisKey = function(req, res) {
+exports.getRedisKey = function (req, res) {
     return new Promise((resolve, reject) => {
         try {
             client.get(req.body.key, (err, data) => {
@@ -112,11 +130,11 @@ exports.getRedisKey = function(req, res) {
     });
 };
 
-exports.deleteRedisKey = async function(req, res) {
+exports.deleteRedisKey = async function (req, res) {
     return new Promise((resolve, reject) => {
         try {
-            client.del(req.body.key, function(err, response) {
-                client.keys("*", function(err, keys) {
+            client.del(req.body.key, function (err, response) {
+                client.keys("*", function (err, keys) {
                     if (err) reject({ success: false, message: err });
                     if (response == 1) {
                         resolve({ keys, message: "Key Deleted", success: true });
@@ -131,10 +149,10 @@ exports.deleteRedisKey = async function(req, res) {
     });
 };
 
-exports.deleteRedisKeys = async function(req, res) {
+exports.deleteRedisKeys = async function (req, res) {
     return new Promise((resolve, reject) => {
         try {
-            client.flushdb(function(err, succeeded) {
+            client.flushdb(function (err, succeeded) {
                 if (err) reject({ success: false, message: err });
                 resolve({ message: "Keys Deleted", success: true });
             });
@@ -144,11 +162,11 @@ exports.deleteRedisKeys = async function(req, res) {
     });
 };
 
-exports.searchRedisKeys = async(req, res) => {
+exports.searchRedisKeys = async (req, res) => {
     return new Promise((resolve, reject) => {
         try {
             let key = "*" + req.query.key + "*";
-            client.keys(key, function(err, keys) {
+            client.keys(key, function (err, keys) {
                 // let count = _.filter(keys, function(o){ return o.split("|")[0] == 'count'})
                 if (err) reject({ success: false, message: err });
                 resolve({ keys });
@@ -159,14 +177,14 @@ exports.searchRedisKeys = async(req, res) => {
     });
 };
 
-exports.searchAndDeleteKeys = async(keyword) => {
+exports.searchAndDeleteKeys = async (keyword) => {
     return new Promise((resolve, reject) => {
         try {
             let key = "*" + keyword + "*";
 
-            client.keys(key, function(err, keys) {
+            client.keys(key, function (err, keys) {
                 keys.forEach((k) => {
-                    client.del(k, function(err, response) {
+                    client.del(k, function (err, response) {
                         console.log(`${key} keys deleted`);
                         resolve(true);
                     });

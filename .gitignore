@@ -8,6 +8,8 @@
 # Env variables and confs
 .env
 
+access.log
+
 # dependencies
 /node_modules
 

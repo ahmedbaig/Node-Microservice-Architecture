@@ -1,3 +1,4 @@
+"use strict";
 var compose = require("composable-middleware");
 //Super Admin
 // function checkAdmin() {

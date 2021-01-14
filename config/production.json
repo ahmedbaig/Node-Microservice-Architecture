@@ -1,0 +1,6 @@
+{
+    "origin": "https://realty-school.herokuapp.com",
+    "db":{
+        "name": "production"
+    }
+}

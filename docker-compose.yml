@@ -5,7 +5,7 @@ services:
         ports:
             - "8080:8080"
         volumes:
-            - ./app/config/haproxy:/usr/local/etc/haproxy
+            - ./config/haproxy:/usr/local/etc/haproxy
 
     web_1:
         build: .
