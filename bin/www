@@ -4,29 +4,28 @@
  * Module dependencies.
  */
 require('dotenv').config()
-var Spinner = require("cli-spinner").Spinner;
-var app = require("../app");
-var fs = require("fs");
-var http = require("http");
-var moment = require("moment");
+const Spinner = require("cli-spinner").Spinner;
+const app = require("../app");
+const fs = require("fs");
+const http = require("http");
+const moment = require("moment");
 const mongoose = require("mongoose");
 const { connect_cache } = require("../app/cache/redis.service");
 const config = require('config');
 /**
  * Get port from environment and store in Express.
  */
-var port = normalizePort(process.env.PORT || "3000");
+const port = normalizePort(process.env.PORT || "3000");
 app.set("port", port);
 
 /**
  * Create HTTP server.
  */
-
-var server = http.createServer(app); 
+const server = http.createServer(app);
 
 /* Make sure to change URI before deployment */
-const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_CLUSTER}/${config.get('db.name')}?retryWrites=true&w=majority`;
-
+// const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_CLUSTER}/${config.get('db.name')}?retryWrites=true&w=majority`;
+const uri = 'mongodb://localhost:27017/node'
 Spinner.setDefaultSpinnerString(19);
 var spinner = new Spinner("Connecting to database.. %s");
 spinner.start();
@@ -68,7 +67,7 @@ mongoose
  */
 
 function normalizePort(val) {
-    var port = parseInt(val, 10);
+    let port = parseInt(val, 10);
 
     if (isNaN(port)) {
         // named pipe

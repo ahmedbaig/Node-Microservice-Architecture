@@ -1,14 +1,15 @@
 'use strict';
 const fs = require("fs");
 const express = require("express");
+const { graphqlHTTP } = require('express-graphql')
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
-const logger = require("morgan"); 
+const logger = require("morgan");
 const cors = require("cors");
 global.ROOTPATH = __dirname;
 var app = express();
-
+const schema = require('./app/schemas')
 const swaggerUi = require("swagger-ui-express"),
     swaggerDocument = require("./swagger.json");
 
@@ -22,7 +23,7 @@ app.set("view engine", "ejs");
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({
     extended: true
- }))
+}))
 app.use(cookieParser());
 
 // create a write stream (in append mode) for system logger
@@ -36,7 +37,10 @@ app.set("view engine", "ejs");
 // Route definitions
 app.use('/cache', require('./app/cache'))
 app.use("/console", require('./routes/console'));
-
+app.use('/graphql', graphqlHTTP({
+    schema,
+    graphiql: true
+}))
 app.use("/api", require("./routes/api"));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 require("./routes/web")(app);;
